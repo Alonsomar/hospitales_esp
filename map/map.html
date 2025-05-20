@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hospidata · Hospitales, Camas y Ratios por Provincia</title>
+
+  <!-- D3 v7 + TopoJSON -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+
+  <style>
+    :root {
+      --brand:#0069c0;--brand-light:#bbdefb;--brand-dark:#004b8d;--accent:#00b8d4;--bg-surface:#fff;--bg-page:#f4f7fb;--tooltip-bg:rgba(25,32,39,.94);--province-stroke:#fff;--font-main:"Inter",system-ui,Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--font-main);background:var(--bg-page);color:#222}
+    #map{width:100vw;height:100vh;cursor:grab}
+    svg:active{cursor:grabbing}
+    .province{stroke:var(--province-stroke);stroke-width:.4;transition:fill .18s,opacity .18s;cursor:pointer}
+    .province:hover{opacity:.9;filter:brightness(1.05)}
+    .active{stroke-width:1}
+    .hospital{fill:var(--accent);stroke:#fff;stroke-width:.8;transition:r .18s,filter .18s}
+    .hospital:hover{filter:drop-shadow(0 0 3px rgba(0,0,0,.3))}
+    .tooltip{position:fixed;pointer-events:none;background:var(--tooltip-bg);color:#fff;padding:8px 12px;border-radius:6px;font-size:14px;line-height:1.45;max-width:260px;box-shadow:0 4px 10px rgba(0,0,0,.4);backdrop-filter:blur(3px)}
+    #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#444;backdrop-filter:blur(2px);background:rgba(255,255,255,.6)}
+    #controls{position:absolute;top:1rem;right:1rem;background:var(--bg-surface);padding:1rem 1.3rem;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-size:14px;display:flex;flex-direction:column;gap:1rem;z-index:10;max-width:300px;max-height:90vh;overflow-y:auto}
+    #controls section{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding-bottom:0.5rem;border-bottom:1px solid rgba(0,0,0,0.1)}
+    #controls section:last-child{border-bottom:none}
+    .info-toggle{width:100%;padding:0.5rem;background:var(--brand-light);border:none;border-radius:4px;color:var(--brand-dark);font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background-color 0.2s}
+    .info-toggle:hover{background:var(--brand);color:white}
+    .info-content{display:none;padding:1rem 0;font-size:0.85rem;color:#666}
+    .info-content.visible{display:block}
+    .info-content p{margin:0.3rem 0;line-height:1.4}
+    .info-content a{color:var(--brand);text-decoration:none}
+    .info-content a:hover{text-decoration:underline}
+    .map-annotation {
+      pointer-events: none;
+    }
+    .map-annotation-bg {
+      fill: none;
+      stroke: none;
+      filter: none;
+    }
+    .map-annotation-arrow {
+      fill: none;
+      stroke: none;
+      stroke-width: 0;
+    }
+    .map-annotation-title {
+      font-family: var(--font-main);
+      font-size: 13px;
+      font-weight: 600;
+      fill: var(--brand-dark);
+      letter-spacing: -0.01em;
+    }
+    .map-annotation-text {
+      font-family: var(--font-main);
+      font-size: 12px;
+      fill: #555;
+      letter-spacing: -0.01em;
+      line-height: 1.4;
+    }
+    .map-title-group {
+      pointer-events: none;
+    }
+    .map-title-bg {
+      fill: none;
+      filter: none;
+    }
+    .map-title-text {
+      font-family: var(--font-main);
+      font-size: 22px;
+      font-weight: 700;
+      fill: var(--brand-dark);
+      letter-spacing: -0.02em;
+    }
+    .map-subtitle-text {
+      font-family: var(--font-main);
+      font-size: 13px;
+      fill: #555;
+      letter-spacing: -0.01em;
+      line-height: 1.5;
+    }
+    @media (max-width: 768px) {
+      #controls {
+        right: 0.5rem;
+        left: 0.5rem;
+        max-width: none;
+      }
+      .map-title-text {
+        font-size: 20px;
+      }
+      .map-subtitle-text {
+        font-size: 13px;
+      }
+      .map-annotation-title {
+        font-size: 13px;
+      }
+      .map-annotation-text {
+        font-size: 12px;
+      }
+    }
+    .map-container{position:relative;width:100vw;height:100vh}
+    .map-footer{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);text-align:center;font-size:0.8rem;color:#666;z-index:20;max-width:800px;padding:0 1rem;pointer-events:none}
+    .map-footer p{margin:0.3rem 0}
+    .map-footer a{color:var(--brand);text-decoration:none}
+    .map-footer a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+<div class="map-container">
+  <div id="loading">Cargando datos…</div>
+  <svg id="map" aria-label="Mapa de hospitales en España">
+    <g id="map-content">
+      <!-- Title group will be added here by JavaScript -->
+    </g>
+  </svg>
+  
+  <div id="controls">
+    <section>
+      <label><input type="checkbox" id="toggleHospitals" checked> Hospitales</label>
+    </section>
+    <section>
+      <label><input type="checkbox" id="togglePrivate" checked> Incluir privados</label>
+    </section>
+    <section>
+      <span>Cloropleta:</span>
+      <label><input type="radio" name="metric" value="n" checked> Ninguna</label>
+      <label><input type="radio" name="metric" value="c"> Hospitales</label>
+      <label><input type="radio" name="metric" value="b"> Camas</label>
+      <label><input type="radio" name="metric" value="r"> Camas / 1 000 hab.</label>
+    </section>
+    <section id="legend"></section>
+    <section id="legendChoro"></section>
+    <section>
+      <button class="info-toggle" id="toggleInfo">
+        <span>Información y fuentes</span>
+        <span>▼</span>
+      </button>
+      <div class="info-content" id="infoContent">
+        <p><strong>Fuentes:</strong></p>
+        <p><strong>Catálogo Nacional de Hospitales 2024</strong> · Ministerio de Sanidad (datos a 31-12-2023)</p>
+        <p><strong>Padrón continuo 2024</strong> · Instituto Nacional de Estadística (INE)</p>
+        <p>Cálculos y geocodificación propios a partir del repositorio <a href="https://github.com/Alonsomar/hospitales_esp" target="_blank">hospitales_esp</a> (GitHub, 2025)</p>
+      </div>
+    </section>
+  </div>
+  
+  <div id="tooltip" class="tooltip" hidden></div>
+</div>
+<script>
+const svg=d3.select('#map'),gMap=svg.append('g'),gProv=gMap.append('g'),gHosp=gMap.append('g');
+const tooltip=d3.select('#tooltip'),loading=d3.select('#loading');
+const toggleHosp=d3.select('#toggleHospitals'),toggleChoro=d3.select('#toggleChoro'),togglePrivate=d3.select('#togglePrivate');
+const legendEl=d3.select('#legend'),legendChoroEl=d3.select('#legendChoro');
+const metricRadios=d3.selectAll('[name="metric"]');
+const searchInput=d3.select('#searchInput'),searchResult=d3.select('#searchResult');
+const projection=d3.geoMercator().center([-3.7,40]);const path=d3.geoPath().projection(projection);
+svg.call(d3.zoom().scaleExtent([1,8]).on('zoom',e=>{gMap.attr('transform',e.transform);updateAnnotationPositions(e.transform);}));
+window.addEventListener('resize',resize);
+function resize(){const w=innerWidth,h=innerHeight;svg.attr('viewBox',`0 0 ${w} ${h}`);projection.translate([w/2,h/2]).scale(Math.min(w,h)*3.25);gProv.selectAll('path').attr('d',path);gHosp.selectAll('circle').attr('cx',d=>projection([d.lon,d.lat])[0]).attr('cy',d=>projection([d.lon,d.lat])[1]);}
+const norm=s=>s? s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';
+const equiv=new Map([['a coruna','la coruna'],['ourense','orense'],['vizcaya','bizkaia'],['guipuzcoa','gipuzkoa'],['lleida','lerida'],['girona','gerona'],['illes balears','baleares']]);
+const topoSrc=['https://code.highcharts.com/mapdata/countries/es/es-all.topo.json'];
+const hospSrc=['https://raw.githubusercontent.com/Alonsomar/hospitales_esp/main/CNH_2024_geocoded.csv'];
+const popSrc=['https://raw.githubusercontent.com/Alonsomar/hospitales_esp/main/poblacion_provincias.csv'];
+async function fetchFirst(urls,parser){for(const u of urls){try{const r=await fetch(u);if(!r.ok)throw 0;return parser?parser(await r.text()):await r.json();}catch{console.warn('Falló',u);}}return null;}
+let hospitals=[],provinces=[],agg=new Map(),bedsVals=[],rScale,colorScale,currentMetric='n';
+const colorRamp=["#e1f5fe","#b3e5fc","#81d4fa","#4fc3f7","#29b6f6","#039be5","#0277bd"];
+let popMap=new Map();
+function computeAggregates(list){agg=new Map();list.forEach(h=>{const k=h.provinceNorm;if(!agg.has(k))agg.set(k,{c:0,b:0,p:popMap.get(k)||0});const o=agg.get(k);o.c++;o.b+=h.beds||0;});agg.forEach(v=>{v.r=v.p? v.b/v.p*1e3:0;});}
+function render(list){computeAggregates(list);bedsVals=list.map(h=>h.beds).filter(Boolean);rScale=d3.scaleSqrt().domain(bedsVals.length?d3.extent(bedsVals):[0,1]).range([2.5,8]);list.forEach(h=>h.rCircle=h.beds?rScale(h.beds):5);
+  const sel=gHosp.selectAll('circle').data(list,d=>d.id);
+  sel.exit().remove();
+  const enter=sel.enter().append('circle').attr('class','hospital')
+    .on('mouseover',(e,d)=>{tooltip.html(`<strong>${d.name}</strong><br>${d.provinceOrig}<br>Camas: ${d.beds||'N/D'}`)
+      .style('left',`${e.clientX+14}px`).style('top',`${e.clientY+14}px`).attr('hidden',null);d3.select(e.currentTarget).attr('r',d.rCircle*1.45);})
+    .on('mousemove',e=>tooltip.style('left',`${e.clientX+14}px`).style('top',`${e.clientY+14}px`))
+    .on('mouseout',(e,d)=>{tooltip.attr('hidden',true);d3.select(e.currentTarget).attr('r',d.rCircle);});
+  enter.merge(sel).attr('r',d=>d.rCircle).attr('cx',d=>projection([d.lon,d.lat])[0]).attr('cy',d=>projection([d.lon,d.lat])[1]);
+  updateChoro(currentMetric);
+}
+function updateChoro(metric){currentMetric=metric;legendChoroEl.selectAll('*').remove();if(metric==='n'){gProv.selectAll('path').attr('fill','var(--brand-light)');return;}const vals=provinces.map(p=>{const n=norm(p.properties.NAME_2||p.properties.name);return(agg.get(n)||{})[metric]||0;});colorScale=d3.scaleQuantile().domain(vals).range(colorRamp);gProv.selectAll('path').attr('fill',d=>{const v=(agg.get(norm(d.properties.NAME_2||d.properties.name))||{})[metric]||0;return v?colorScale(v):'#dde9f1';});buildChoroLegend(metric);}
+function buildChoroLegend(metric){const width=200,height=48,band=24;const svgL=legendChoroEl.append('svg').attr('width',width).attr('height',height);colorRamp.forEach((c,i)=>svgL.append('rect').attr('x',10+i*band).attr('y',0).attr('width',band).attr('height',12).attr('fill',c));const labelMap={c:'Hospitales provincia',b:'Camas provincia',r:'Camas ∕ 1000 hab.'};svgL.append('text').attr('x',10).attr('y',28).attr('font-size','12px').text(labelMap[metric]);svgL.append('text').attr('x',10).attr('y',40).attr('font-size','11px').text('↙ menos');svgL.append('text').attr('x',width-10).attr('y',40).attr('font-size','11px').attr('text-anchor','end').text('más ↗');}
+function createAnnotation(g, x, y, title, text, arrowPosition = 'right') {
+  const padding = 10;
+  const lineHeight = 16;
+  const titleSize = 13;
+  const textSize = 12;
+  const maxWidth = 220;
+  
+  // Create text elements to measure
+  const titleEl = g.append('text')
+    .attr('class', 'map-annotation-title')
+    .attr('x', padding)
+    .attr('y', padding + titleSize)
+    .text(title);
+    
+  const textEl = g.append('text')
+    .attr('class', 'map-annotation-text')
+    .attr('x', padding)
+    .attr('y', padding + titleSize + lineHeight)
+    .text(text);
+    
+  // Get text dimensions
+  const titleWidth = titleEl.node().getComputedTextLength();
+  const textWidth = textEl.node().getComputedTextLength();
+  const width = Math.min(Math.max(titleWidth, textWidth) + padding * 2, maxWidth);
+  const height = padding * 2 + titleSize + lineHeight;
+  
+  // Create background with rounded corners
+  const bg = g.append('rect')
+    .attr('class', 'map-annotation-bg')
+    .attr('x', 0)
+    .attr('y', 0)
+    .attr('width', width)
+    .attr('height', height)
+    .attr('rx', 6);
+    
+  // Create arrow
+  const arrowSize = 6;
+  const arrow = g.append('path')
+    .attr('class', 'map-annotation-arrow')
+    .attr('d', arrowPosition === 'right' 
+      ? `M${width} ${height/2} l${arrowSize} ${-arrowSize} l${arrowSize} ${arrowSize}`
+      : `M0 ${height/2} l${-arrowSize} ${-arrowSize} l${-arrowSize} ${arrowSize}`);
+    
+  // Position the group
+  g.attr('transform', `translate(${x}, ${y})`);
+  
+  // Word wrap for text
+  const words = text.split(' ');
+  let line = '';
+  let lineNumber = 0;
+  const maxChars = Math.floor((width - padding * 2) / (textSize * 0.6));
+  
+  textEl.text('');
+  words.forEach(word => {
+    const testLine = line + word + ' ';
+    if (testLine.length > maxChars) {
+      textEl.append('tspan')
+        .attr('x', padding)
+        .attr('dy', lineNumber === 0 ? lineHeight : lineHeight)
+        .text(line);
+      line = word + ' ';
+      lineNumber++;
+    } else {
+      line = testLine;
+    }
+  });
+  textEl.append('tspan')
+    .attr('x', padding)
+    .attr('dy', lineNumber === 0 ? lineHeight : lineHeight)
+    .text(line);
+    
+  // Adjust height based on wrapped text
+  const newHeight = padding * 2 + titleSize + lineHeight * (lineNumber + 1);
+  bg.attr('height', newHeight);
+  
+  return { width, height: newHeight };
+}
+function createTitle(g) {
+  const title = "La geografía de las camas hospitalarias en España";
+  const subtitle = "Un mapa interactivo para contrastar, provincia a provincia, cuántos hospitales existen, cuántas camas ofrecen y quién las gestiona.";
+  
+  const padding = 16;
+  const titleSize = 22;
+  const subtitleSize = 13;
+  const lineHeight = 20;
+  const maxWidth = 560;
+  
+  // Create text elements to measure
+  const titleEl = g.append('text')
+    .attr('class', 'map-title-text')
+    .attr('x', padding)
+    .attr('y', padding + titleSize)
+    .text(title);
+    
+  const subtitleEl = g.append('text')
+    .attr('class', 'map-subtitle-text')
+    .attr('x', padding)
+    .attr('y', padding + titleSize + lineHeight)
+    .text(subtitle);
+    
+  // Get text dimensions
+  const titleWidth = titleEl.node().getComputedTextLength();
+  const subtitleWidth = subtitleEl.node().getComputedTextLength();
+  const width = Math.min(Math.max(titleWidth, subtitleWidth) + padding * 2, maxWidth);
+  const height = padding * 2 + titleSize + lineHeight;
+  
+  // Create background with rounded corners
+  g.append('rect')
+    .attr('class', 'map-title-bg')
+    .attr('x', 0)
+    .attr('y', 0)
+    .attr('width', width)
+    .attr('height', height)
+    .attr('rx', 8);
+    
+  // Word wrap for subtitle
+  const words = subtitle.split(' ');
+  let line = '';
+  let lineNumber = 0;
+  const maxChars = Math.floor((width - padding * 2) / (subtitleSize * 0.6));
+  
+  subtitleEl.text('');
+  words.forEach(word => {
+    const testLine = line + word + ' ';
+    if (testLine.length > maxChars) {
+      subtitleEl.append('tspan')
+        .attr('x', padding)
+        .attr('dy', lineNumber === 0 ? lineHeight : lineHeight)
+        .text(line);
+      line = word + ' ';
+      lineNumber++;
+    } else {
+      line = testLine;
+    }
+  });
+  subtitleEl.append('tspan')
+    .attr('x', padding)
+    .attr('dy', lineNumber === 0 ? lineHeight : lineHeight)
+    .text(line);
+    
+  // Adjust height based on wrapped text
+  const newHeight = padding * 2 + titleSize + lineHeight * (lineNumber + 1);
+  g.select('.map-title-bg').attr('height', newHeight);
+  
+  return { width, height: newHeight };
+}
+(async()=>{try{const topo=await fetchFirst(topoSrc);const hospitalsRaw=await fetchFirst(hospSrc,t=>d3.csvParse(t,d3.autoType));const popRaw=await fetchFirst(popSrc,t=>d3.csvParse(t,d3.autoType));if(!topo||!hospitalsRaw) throw new Error('Datos base incompletos');popMap=new Map((popRaw||[]).map(d=>[norm(d.Provincia),+d.Poblacion||0]));let id=0;hospitals=hospitalsRaw.filter(d=>!isNaN(d.lat)&&!isNaN(d.lon)).map(d=>{const pNorm=norm(d.Provincia||'');return{id:id++,name:d['Nombre Centro']||'',provinceOrig:d.Provincia||'',provinceNorm:equiv.get(pNorm)||pNorm,beds:+d.CAMAS||null,dep:+d['Cód. Dep. Funcional']||null,lat:+d.lat,lon:+d.lon};});provinces=topojson.feature(topo,topo.objects[Object.keys(topo.objects)[0]]).features;gProv.selectAll('path').data(provinces).enter().append('path').attr('d',path).attr('class','province').on('mouseover',(e,d)=>{const n=norm(d.properties.NAME_2||d.properties.name);const {c=0,b=0,p=0,r=0}=agg.get(n)||{};d3.select(e.currentTarget).classed('active',true);tooltip.html(`<strong>${d.properties.NAME_2||d.properties.name}</strong><br>${c} hosp · ${b.toLocaleString()} camas${p?`<br>${p.toLocaleString()} hab · ${r.toFixed(2)} camas/1000`:''}`)
+  .style('left',`${e.clientX+14}px`).style('top',`${e.clientY+14}px`).attr('hidden',null);}).on('mousemove',e=>tooltip.style('left',`${e.clientX+14}px`).style('top',`${e.clientY+14}px`)).on('mouseout',e=>{d3.select(e.currentTarget).classed('active',false);tooltip.attr('hidden',true);});render(hospitals);toggleHosp.on('change',()=>gHosp.attr('display',toggleHosp.property('checked')?null:'none'));toggleChoro.on('change',()=>gProv.attr('display',toggleChoro.property('checked')?null:'none'));metricRadios.on('change',e=>updateChoro(e.target.value));togglePrivate.on('change',()=>{const include=togglePrivate.property('checked');const filtered=include?hospitals:hospitals.filter(h=>h.dep!==20);render(filtered);});resize();loading.remove();
+  // Add title group
+  const titleGroup = gMap.append('g')
+    .attr('class', 'map-title-group');
+  const titleDims = createTitle(titleGroup);
+  titleGroup.attr('transform', `translate(${innerWidth/2 - titleDims.width/2}, 40)`);
+  
+  // Add annotation groups
+  const gAnnotations = gMap.append('g')
+    .attr('class', 'map-annotations');
+    
+  const annotations = [
+    {
+      x: innerWidth * 0.20,
+      y: innerHeight * 0.38,
+      title: "159.587 camas (3,0 / 1.000 hab.)",
+      text: "La capacidad nacional queda por debajo de la media de la UE (4,7).",
+      arrow: 'right'
+    },
+    {
+      x: innerWidth * 0.75,
+      y: innerHeight * 0.45,
+      title: "El peso del sector privado",
+      text: "El 54 % de los hospitales son privados, pero reúnen sólo el 32 % de las camas.",
+      arrow: 'left'
+    },
+    {
+      x: innerWidth * 0.25,
+      y: innerHeight * 0.60,
+      title: "Desigualdades territoriales",
+      text: "León alcanza 4,5 camas por 1 000 habitantes; Las Palmas se queda en 2,0.",
+      arrow: 'right'
+    },
+    {
+      x: innerWidth * 0.62,
+      y: innerHeight * 0.65,
+      title: "Concentración urbana",
+      text: "Madrid, Barcelona, Valencia y Sevilla agrupan cerca del 25 % de todas las camas del país.",
+      arrow: 'left'
+    }
+  ];
+  
+  annotations.forEach(ann => {
+    const g = gAnnotations.append('g')
+      .attr('class', 'map-annotation');
+    createAnnotation(g, ann.x, ann.y, ann.title, ann.text, ann.arrow);
+  });
+}catch(err){console.error(err);loading.text('⚠ Error cargando datos');}})();
+
+function showAnnotations() {
+  const annotations = document.querySelectorAll('.annotation');
+  annotations.forEach((ann, i) => {
+    setTimeout(() => {
+      ann.classList.add('visible');
+    }, i * 300);
+  });
+}
+
+function updateAnnotationPositions(transform) {
+  const annotations = document.querySelectorAll('.annotation');
+  annotations.forEach(ann => {
+    const originalX = parseFloat(ann.style.left);
+    const originalY = parseFloat(ann.style.top);
+    const x = originalX * transform.k + transform.x;
+    const y = originalY * transform.k + transform.y;
+    ann.style.transform = `translate(${x}px, ${y}px) scale(${transform.k})`;
+  });
+}
+
+// Toggle info panel
+document.getElementById('toggleInfo').addEventListener('click', function() {
+  const content = document.getElementById('infoContent');
+  const arrow = this.querySelector('span:last-child');
+  content.classList.toggle('visible');
+  arrow.textContent = content.classList.contains('visible') ? '▲' : '▼';
+});
+
+// Show annotations after map loads
+window.addEventListener('load', () => {
+  setTimeout(showAnnotations, 1000);
+  // Initial position update
+  const transform = d3.zoomTransform(svg.node());
+  updateAnnotationPositions(transform);
+});
+
+// Remove the old resize handler for annotations since they now move with the map
+window.removeEventListener('resize', () => {
+  const annotations = document.querySelectorAll('.annotation');
+  annotations.forEach(ann => {
+    const rect = ann.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      ann.style.left = `${window.innerWidth - rect.width - 20}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      ann.style.top = `${window.innerHeight - rect.height - 20}px`;
+    }
+  });
+});
+</script>
+</body>
+</html>
