@@ -120,8 +120,6 @@
   <div id="controls">
     <section>
       <label><input type="checkbox" id="toggleHospitals" checked> Hospitales</label>
-    </section>
-    <section>
       <label><input type="checkbox" id="togglePrivate" checked> Incluir privados</label>
     </section>
     <section>
@@ -129,9 +127,8 @@
       <label><input type="radio" name="metric" value="n" checked> Ninguna</label>
       <label><input type="radio" name="metric" value="c"> Hospitales</label>
       <label><input type="radio" name="metric" value="b"> Camas</label>
-      <label><input type="radio" name="metric" value="r"> Camas / 1 000 hab.</label>
+      <label><input type="radio" name="metric" value="r"> Camas / 1.000 hab.</label>
     </section>
-    <section id="legend"></section>
     <section id="legendChoro"></section>
     <section>
       <button class="info-toggle" id="toggleInfo">
@@ -353,21 +350,21 @@ function createTitle(g) {
       x: innerWidth * 0.75,
       y: innerHeight * 0.45,
       title: "El peso del sector privado",
-      text: "El 54 % de los hospitales son privados, pero reúnen sólo el 32 % de las camas.",
+      text: "El 54 % de los hospitales son privados, pero reúnen sólo el 32% de las camas.",
       arrow: 'left'
     },
     {
       x: innerWidth * 0.25,
       y: innerHeight * 0.60,
       title: "Desigualdades territoriales",
-      text: "León alcanza 4,5 camas por 1 000 habitantes; Las Palmas se queda en 2,0.",
+      text: "León alcanza 4,5 camas por 1.000 habitantes; Las Palmas se queda en 2,0.",
       arrow: 'right'
     },
     {
       x: innerWidth * 0.62,
       y: innerHeight * 0.65,
       title: "Concentración urbana",
-      text: "Madrid, Barcelona, Valencia y Sevilla agrupan cerca del 25 % de todas las camas del país.",
+      text: "Madrid, Barcelona, Valencia y Sevilla agrupan cerca del 25% de todas las camas del país.",
       arrow: 'left'
     }
   ];
