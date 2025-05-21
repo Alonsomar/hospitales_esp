@@ -1,7 +1,7 @@
 **➡️ Prueba el mapa en directo:**
 [https://alonsomar.github.io/hospitales\_esp/map/map.html](https://alonsomar.github.io/hospitales_esp/map/map.html)
 
-[![Vista previa del mapa](screenshots\captura_camas_hab.png)](https://alonsomar.github.io/hospitales_esp/map/map.html)
+[![Vista previa del mapa](https://raw.githubusercontent.com/Alonsomar/hospitales_esp/refs/heads/main/screenshots/captura_camas_hab.png)](https://alonsomar.github.io/hospitales_esp/map/map.html)
 
 ---
 
