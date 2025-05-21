@@ -351,11 +351,43 @@
         <span>▼</span>
       </button>
       <div class="info-content" id="infoContent">
-        <p><strong>Fuentes:</strong></p>
-        <p><strong>Catálogo Nacional de Hospitales 2024</strong> · Ministerio de Sanidad (datos a 31-12-2023)</p>
-        <p><strong>Padrón continuo 2024</strong> · Instituto Nacional de Estadística (INE)</p>
-        <p>Cálculos y geocodificación propios a partir del repositorio <a href="https://github.com/Alonsomar/hospitales_esp" target="_blank">hospitales_esp</a> (GitHub, 2025)</p>
+        <p><strong>Fuentes&nbsp;y&nbsp;licencias:</strong></p>
+        <ul>
+          <li>
+            <strong>Catálogo Nacional de Hospitales 2024</strong> · Ministerio de Sanidad —
+            reutilización de la información del sector público
+            (<abbr title="Ley 37/2007 · equivalente CC-BY 4.0">CC-BY</abbr>).
+            Datos a 31-12-2023.
+          </li>
+      
+          <li>
+            <strong>Padrón continuo 2024</strong> · Instituto Nacional de Estadística (INE) —
+            datos abiertos <abbr title="CC-BY 4.0">CC-BY</abbr>.
+          </li>
+      
+          <li>
+            <strong>Topología provincial</strong> · Natural Earth <span title="Dominio público">🄯</span>
+            + paquete <em>es-all.topo.json</em> de Highcharts (MIT).<br>
+            Fallback: <em>deldersveld/topojson</em> (MIT) y <em>es-atlas</em> (CC-BY 4.0).
+          </li>
+      
+          <li>
+            <strong>Geocodificación</strong> · Nominatim / OpenStreetMap —
+            <abbr title="Open Database License 1.0">ODbL 1.0</abbr>
+            © OpenStreetMap contributors.
+          </li>
+      
+          <li>Bibliotecas: D3.js &middot; TopoJSON (MIT).</li>
+      
+          <li>
+            Cálculos, limpieza y código:
+            <a href="https://github.com/Alonsomar/hospitales_esp" target="_blank" rel="noopener">
+              hospitales_esp
+            </a> (MIT, 2025).
+          </li>
+        </ul>
       </div>
+      
     </section>
   </div>
   
@@ -595,7 +627,7 @@ function createTitle(g) {
     {
       x: innerWidth * 0.20,
       y: innerHeight * 0.38,
-      title: "159.587 camas (3,0 / 1.000 hab.)",
+      title: "159.587 camas (3,3 / 1.000 hab.)",
       text: "La capacidad nacional queda por debajo de la media de la UE (4,7).",
       arrow: 'right',
       mobileX: 0.05,
@@ -605,7 +637,7 @@ function createTitle(g) {
       x: innerWidth * 0.75,
       y: innerHeight * 0.45,
       title: "El peso del sector privado",
-      text: "El 54 % de los hospitales son privados, pero reúnen sólo el 32% de las camas.",
+      text: "El 49% de los hospitales son de dependencia funcional privada, pero reúnen sólo el 29% de las camas.",
       arrow: 'left',
       mobileX: 0.55,
       mobileY: 0.25
@@ -614,7 +646,7 @@ function createTitle(g) {
       x: innerWidth * 0.25,
       y: innerHeight * 0.60,
       title: "Desigualdades territoriales",
-      text: "León alcanza 4,5 camas por 1.000 habitantes; Las Palmas se queda en 2,0.",
+      text: "León alcanza 4,7 camas por 1.000 habitantes; Las Palmas se queda en 3,2.",
       arrow: 'right',
       mobileX: 0.05,
       mobileY: 0.7
@@ -623,7 +655,7 @@ function createTitle(g) {
       x: innerWidth * 0.62,
       y: innerHeight * 0.65,
       title: "Concentración urbana",
-      text: "Madrid, Barcelona, Valencia y Sevilla agrupan cerca del 25% de todas las camas del país.",
+      text: "Madrid, Barcelona, Valencia y Sevilla agrupan cerca del 37% de todas las camas del país.",
       arrow: 'left',
       mobileX: 0.55,
       mobileY: 0.72
