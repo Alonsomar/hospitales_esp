@@ -34,6 +34,7 @@
       background: var(--bg-page);
       color: #222;
       min-height: 100vh;
+      overflow-x: hidden; /* Prevent horizontal scroll */
     }
     #map {
       width: 100vw;
@@ -87,6 +88,12 @@
       backdrop-filter: blur(3px);
       background: rgba(255, 255, 255, 0.8);
     }
+    .map-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden; /* Contain the controls panel */
+    }
     #controls {
       position: absolute;
       top: 1.5rem;
@@ -104,6 +111,47 @@
       max-height: 90vh;
       overflow-y: auto;
       border: 1px solid rgba(0, 0, 0, 0.05);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      transform: translateX(0);
+    }
+    #controls.collapsed {
+      transform: translateX(120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #controls-toggle {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      width: 40px;
+      height: 40px;
+      background: var(--bg-surface);
+      border: none;
+      border-radius: 50%;
+      box-shadow: var(--shadow-lg);
+      cursor: pointer;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease, background-color 0.2s ease;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    #controls-toggle:hover {
+      background: var(--brand-light);
+    }
+    #controls-toggle::before {
+      content: "×";
+      font-size: 1.8rem;
+      color: var(--brand-dark);
+      transition: transform 0.3s ease;
+    }
+    #controls-toggle.collapsed::before {
+      content: "≡";
+      font-size: 1.5rem;
+    }
+    #controls-toggle.collapsed {
+      transform: translateX(0);
     }
     #controls section {
       display: flex;
@@ -239,6 +287,13 @@
         max-width: none;
         padding: 1rem;
       }
+      #controls.collapsed {
+        transform: translateX(120%);
+      }
+      #controls-toggle {
+        right: 0.5rem;
+        top: 0.5rem;
+      }
       .map-title-text {
         font-size: 20px;
       }
@@ -252,7 +307,6 @@
         font-size: 12px;
       }
     }
-    .map-container{position:relative;width:100vw;height:100vh}
     .map-footer{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);text-align:center;font-size:0.8rem;color:#666;z-index:20;max-width:800px;padding:0 1rem;pointer-events:none}
     .map-footer p{margin:0.3rem 0}
     .map-footer a{color:var(--brand);text-decoration:none}
@@ -262,6 +316,7 @@
 <body>
 <div class="map-container">
   <div id="loading">Cargando datos…</div>
+  <button id="controls-toggle" aria-label="Mostrar/ocultar controles"></button>
   <svg id="map" aria-label="Mapa de hospitales en España">
     <g id="map-content">
       <!-- Title group will be added here by JavaScript -->
@@ -576,6 +631,42 @@ window.removeEventListener('resize', () => {
     }
   });
 });
+
+
+document.getElementById('controls-toggle').addEventListener('click', function() {
+  const controls = document.getElementById('controls');
+  const toggle = this;
+  const isCollapsing = !controls.classList.contains('collapsed');
+  
+  controls.classList.toggle('collapsed');
+  toggle.classList.toggle('collapsed');
+  
+  // Update aria-label for accessibility
+  toggle.setAttribute('aria-label', 
+    isCollapsing 
+      ? 'Mostrar controles' 
+      : 'Ocultar controles'
+  );
+});
+
+// Initialize controls state based on screen size
+function initControlsState() {
+  const controls = document.getElementById('controls');
+  const toggle = document.getElementById('controls-toggle');
+  if (window.innerWidth <= 768) {
+    controls.classList.add('collapsed');
+    toggle.classList.add('collapsed');
+    toggle.setAttribute('aria-label', 'Mostrar controles');
+  } else {
+    controls.classList.remove('collapsed');
+    toggle.classList.remove('collapsed');
+    toggle.setAttribute('aria-label', 'Ocultar controles');
+  }
+}
+
+// Call on load and resize
+window.addEventListener('load', initControlsState);
+window.addEventListener('resize', initControlsState);
 </script>
 </body>
 </html>
