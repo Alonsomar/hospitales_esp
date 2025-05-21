@@ -294,17 +294,26 @@
         right: 0.5rem;
         top: 0.5rem;
       }
+      .map-title-group {
+        max-width: 95vw;
+      }
       .map-title-text {
-        font-size: 20px;
+        font-size: 1.1rem;
+        text-align: center;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        fill: var(--brand-dark);
+        max-width: 90vw;
+        dominant-baseline: middle;
       }
       .map-subtitle-text {
-        font-size: 13px;
-      }
-      .map-annotation-title {
-        font-size: 13px;
-      }
-      .map-annotation-text {
-        font-size: 12px;
+        font-size: 0.95rem;
+        text-align: center;
+        fill: #555;
+        max-width: 90vw;
+        letter-spacing: -0.01em;
+        line-height: 1.4;
+        dominant-baseline: middle;
       }
     }
     .map-footer{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);text-align:center;font-size:0.8rem;color:#666;z-index:20;max-width:800px;padding:0 1rem;pointer-events:none}
@@ -468,23 +477,25 @@ function createTitle(g) {
   const subtitle = "Un mapa interactivo para contrastar, provincia a provincia, cuántos hospitales existen, cuántas camas ofrecen y quién las gestiona.";
   
   const padding = 16;
-  const titleSize = 22;
-  const subtitleSize = 13;
-  const lineHeight = 20;
-  const maxWidth = 560;
+  const titleSize = window.innerWidth <= 768 ? 18 : 22;
+  const subtitleSize = window.innerWidth <= 768 ? 13 : 13;
+  const lineHeight = window.innerWidth <= 768 ? 18 : 20;
+  const maxWidth = window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.92, 340) : 560;
   
   // Create text elements to measure
   const titleEl = g.append('text')
     .attr('class', 'map-title-text')
     .attr('x', padding)
     .attr('y', padding + titleSize)
-    .text(title);
+    .text(title)
+    .attr('text-anchor', window.innerWidth <= 768 ? 'middle' : 'start');
     
   const subtitleEl = g.append('text')
     .attr('class', 'map-subtitle-text')
     .attr('x', padding)
     .attr('y', padding + titleSize + lineHeight)
-    .text(subtitle);
+    .text(subtitle)
+    .attr('text-anchor', window.innerWidth <= 768 ? 'middle' : 'start');
     
   // Get text dimensions
   const titleWidth = titleEl.node().getComputedTextLength();
@@ -512,9 +523,9 @@ function createTitle(g) {
     const testLine = line + word + ' ';
     if (testLine.length > maxChars) {
       subtitleEl.append('tspan')
-        .attr('x', padding)
+        .attr('x', window.innerWidth <= 768 ? width/2 : padding)
         .attr('dy', lineNumber === 0 ? lineHeight : lineHeight)
-        .text(line);
+        .text(line.trim());
       line = word + ' ';
       lineNumber++;
     } else {
@@ -522,10 +533,38 @@ function createTitle(g) {
     }
   });
   subtitleEl.append('tspan')
-    .attr('x', padding)
+    .attr('x', window.innerWidth <= 768 ? width/2 : padding)
     .attr('dy', lineNumber === 0 ? lineHeight : lineHeight)
-    .text(line);
+    .text(line.trim());
     
+  // Word wrap for title (solo en móvil)
+  if (window.innerWidth <= 768) {
+    const titleWords = title.split(' ');
+    let tLine = '';
+    let tLineNumber = 0;
+    const tMaxChars = Math.floor((width - padding * 2) / (titleSize * 0.6));
+    titleEl.text('');
+    titleWords.forEach(word => {
+      const testLine = tLine + word + ' ';
+      if (testLine.length > tMaxChars) {
+        titleEl.append('tspan')
+          .attr('x', width/2)
+          .attr('dy', tLineNumber === 0 ? 0 : lineHeight)
+          .attr('text-anchor', 'middle')
+          .text(tLine.trim());
+        tLine = word + ' ';
+        tLineNumber++;
+      } else {
+        tLine = testLine;
+      }
+    });
+    titleEl.append('tspan')
+      .attr('x', width/2)
+      .attr('dy', tLineNumber === 0 ? 0 : lineHeight)
+      .attr('text-anchor', 'middle')
+      .text(tLine.trim());
+  }
+  
   // Adjust height based on wrapped text
   const newHeight = padding * 2 + titleSize + lineHeight * (lineNumber + 1);
   g.select('.map-title-bg').attr('height', newHeight);
@@ -538,7 +577,15 @@ function createTitle(g) {
   const titleGroup = gMap.append('g')
     .attr('class', 'map-title-group');
   const titleDims = createTitle(titleGroup);
-  titleGroup.attr('transform', `translate(${innerWidth/2 - titleDims.width/2}, 40)`);
+  
+  // Update title position based on screen size
+  function updateTitlePosition() {
+    const isMobile = window.innerWidth <= 768;
+    titleGroup.attr('transform', isMobile 
+      ? `translate(${innerWidth/2 - titleDims.width/2}, 30)`
+      : `translate(${innerWidth/2 - titleDims.width/2}, 40)`
+    );
+  }
   
   // Add annotation groups
   const gAnnotations = gMap.append('g')
@@ -550,36 +597,74 @@ function createTitle(g) {
       y: innerHeight * 0.38,
       title: "159.587 camas (3,0 / 1.000 hab.)",
       text: "La capacidad nacional queda por debajo de la media de la UE (4,7).",
-      arrow: 'right'
+      arrow: 'right',
+      mobileX: 0.05,
+      mobileY: 0.22
     },
     {
       x: innerWidth * 0.75,
       y: innerHeight * 0.45,
       title: "El peso del sector privado",
       text: "El 54 % de los hospitales son privados, pero reúnen sólo el 32% de las camas.",
-      arrow: 'left'
+      arrow: 'left',
+      mobileX: 0.55,
+      mobileY: 0.25
     },
     {
       x: innerWidth * 0.25,
       y: innerHeight * 0.60,
       title: "Desigualdades territoriales",
       text: "León alcanza 4,5 camas por 1.000 habitantes; Las Palmas se queda en 2,0.",
-      arrow: 'right'
+      arrow: 'right',
+      mobileX: 0.05,
+      mobileY: 0.7
     },
     {
       x: innerWidth * 0.62,
       y: innerHeight * 0.65,
       title: "Concentración urbana",
       text: "Madrid, Barcelona, Valencia y Sevilla agrupan cerca del 25% de todas las camas del país.",
-      arrow: 'left'
+      arrow: 'left',
+      mobileX: 0.55,
+      mobileY: 0.72
     }
   ];
   
+  // Function to update annotation positions
+  function updateAnnotationPositions() {
+    const isMobile = window.innerWidth <= 768;
+    annotations.forEach((ann, i) => {
+      const g = d3.select(gAnnotations.node().children[i]);
+      const x = isMobile ? innerWidth * ann.mobileX : ann.x;
+      const y = isMobile ? innerHeight * ann.mobileY : ann.y;
+      g.attr('transform', `translate(${x}, ${y})`);
+    });
+  }
+  
+  // Create annotations
   annotations.forEach(ann => {
     const g = gAnnotations.append('g')
       .attr('class', 'map-annotation');
-    createAnnotation(g, ann.x, ann.y, ann.title, ann.text, ann.arrow);
+    createAnnotation(g, 0, 0, ann.title, ann.text, ann.arrow);
   });
+  
+  // Initial positioning
+  updateTitlePosition();
+  updateAnnotationPositions();
+  
+  // Update positions on resize
+  window.addEventListener('resize', () => {
+    updateTitlePosition();
+    updateAnnotationPositions();
+  });
+  
+  // Update the existing resize function to include our new positioning functions
+  const originalResize = resize;
+  resize = function() {
+    originalResize();
+    updateTitlePosition();
+    updateAnnotationPositions();
+  };
 }catch(err){console.error(err);loading.text('⚠ Error cargando datos');}})();
 
 function showAnnotations() {
